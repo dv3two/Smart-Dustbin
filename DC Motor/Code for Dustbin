@@ -1,0 +1,59 @@
+// OPEN IN ARDUINO
+// Define the pin numbers
+int motorPin1 = 5; 
+int motorPin2 = 6;
+int en1 = 4;
+int limitSwitch1 = 7; // We used 2 limit switches one to end forward movement
+int limitSwitch2 = 8; // Other to end the backward movement of DC motor
+char data; // Comes in the form of 'F' and 's' from a Bluetooth module
+int i = 0;// creates a variable i 
+void setup() {
+  // Set the pin modes of the above IO pins to OUTPUT
+  Serial.begin(9600); // starts the serial communication at the aud rate of 9600
+  pinMode(motorPin1, OUTPUT); // define motorPin1 as OUTPUT , Bcz we need 5v here
+  pinMode(motorPin2, OUTPUT);// define motorPin2 as OUTPUT , Bcz we need 5v here
+  pinMode(limitSwitch1, INPUT_PULLUP);//defines limitswitch1 as input pullup , means it will stay HIGH unless a signal is recived 
+  pinMode(limitSwitch2, INPUT_PULLUP);////defines limitswitch2 as input pullup , means it will stay HIGH unless a signal is recived 
+}
+void loop() {
+  if (Serial.available()) // Something is recieved then only go inside this else dont execute this code 
+  {
+    data = Serial.read();// read the data recieved 
+    Serial.println(data);//print the data recieved 
+  }
+  if (data == 'F' && i == 0)//if data recieved is 'F' and the value of 'i' is 0 then Turn the motor in one direction 
+    // Turn the motor in one direction
+  {
+    digitalWrite(motorPin1, HIGH);
+    digitalWrite(motorPin2, LOW);
+    analogWrite(en1, 200);
+    delay(1000);
+    analogWrite(en1, 0);
+    delay(1000);
+    if (digitalRead(limitSwitch1) == LOW)
+    {
+      digitalWrite(motorPin2, LOW);
+      digitalWrite(motorPin1, LOW);
+      delay(2000);
+      analogWrite(en1, 200);
+      digitalWrite(motorPin1, LOW);
+      digitalWrite(motorPin2, HIGH);
+      analogWrite(en1, 0);
+      delay(500);
+    }
+    analogWrite(en1, 0);
+    delay(1000);
+    if (digitalRead(limitSwitch2) == LOW)
+    {
+      digitalWrite(motorPin2, LOW);
+      digitalWrite(motorPin1, LOW);
+      analogWrite(en1, 0);
+      delay(1000);
+      i = 1;
+    }
+  }
+  if(data =='S')
+  {
+    i=0;//if data recieved is 'S' then initialize 'i' by 0 for the next cycle
+  }
+}
