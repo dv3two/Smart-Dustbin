@@ -1,0 +1,159 @@
+// OPEN THIS CODE IN ARDUINO
+
+#include <SoftwareSerial.h>
+ 
+#define DEBUG true
+// defines pins numbers
+const int trigPin = 9;
+const int echoPin = 10;
+// defines variables
+long duration;
+int distance;
+String strdistance;
+String webpage1;
+ 
+SoftwareSerial esp8266(3,4); // make RX Arduino line is pin 2, make TX Arduino line is pin 3.
+                             // This means that you need to connect the TX line from the esp to the Arduino's pin 2
+                             // and the RX line from the esp to the Arduino's pin 3
+void setup()
+{
+  Serial.begin(115200);
+  esp8266.begin(115200); // your esp's baud rate might be different
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
+ 
+  
+  sendData("AT+RST\r\n",2000,DEBUG); // reset module
+  sendData("AT+CWMODE=1\r\n",1000,DEBUG); // configure as access point
+  sendData("AT+CIFSR\r\n",1000,DEBUG); // get ip address
+  sendData("AT+CIPMUX=1\r\n",1000,DEBUG); // configure for multiple connections
+  sendData("AT+CIPSERVER=1,80\r\n",1000,DEBUG); // turn on server on port 80
+}
+ 
+void loop()
+{
+  //DUSTBIN CODE
+  // Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(50);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(50);
+  digitalWrite(trigPin, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  // Calculating the distance
+  distance = duration * 0.034 / 2;
+  // Prints the distance on the Serial Monitor
+  strdistance = String(distance);
+  //Condition
+  if (distance == 20)
+  {
+    Serial.println("The Dustbin is half filled");
+    delay(5000);
+    webpage1 = "The Dustbin is half filled and the space left is: ";
+  }
+  else if (distance < 20)
+  {
+    if (distance == 0)
+    {
+      Serial.println("The Dustbin is full");
+      delay(5000);
+      webpage1 = "The Dustbin is full and the space left in centimeters is: ";
+    }
+    else if (distance > 0)
+    {
+      Serial.println("The Dustbin is filled more than half but not full");
+      delay(5000);
+      webpage1 = "The Dustbin is filled more than half but not full and the space left in centimeters is: ";
+    }
+  }
+  else if (distance > 20)
+  {
+    if (distance == 40)
+    {
+      Serial.println("The Dustbin is Empty");
+      delay(5000);
+      webpage1 = "The Dustbin is Empty and the space left in centimeters is: ";
+    }
+    else if (distance < 40)
+    {
+      Serial.println("The Dustbin is filled less than half");
+      delay(5000);
+      webpage1 = "The Dustbin is filled less than half and the space left in centimeters is: ";
+    }
+  }
+  //END OF DUSTBIN CODE
+  if(esp8266.available()) // check if the esp is sending a message 
+  {
+    /*
+    while(esp8266.available())
+    {
+      // The esp has data so display its output to the serial window 
+      char c = esp8266.read(); // read the next character.
+      Serial.write(c);
+    } */
+    
+    if(esp8266.find("+IPD,"))
+    {
+     delay(1000);
+ 
+     int connectionId = esp8266.read()-48; // subtract 48 because the read() function returns 
+                                           // the ASCII decimal value and 0 (the first decimal number) starts at 48
+
+     String webpage2;
+     webpage2 += "<html><meta http-equiv=\"refresh\" content=\"3\">";
+     String webpage = webpage2 + webpage1;
+     String cipSend = "AT+CIPSEND=";
+     cipSend += connectionId;
+     cipSend += ",";
+     cipSend +=webpage.length();
+     cipSend +="\r\n";
+     
+     sendData(cipSend,1000,DEBUG);
+     sendData(webpage,1000,DEBUG);
+                                           
+     webpage = strdistance;
+     cipSend = "AT+CIPSEND=";
+     cipSend += connectionId;
+     cipSend += ",";
+     cipSend +=webpage.length();
+     cipSend +="\r\n";
+     
+     sendData(cipSend,1000,DEBUG);
+     sendData(webpage,1000,DEBUG);
+     
+     String closeCommand = "AT+CIPCLOSE="; 
+     closeCommand+=connectionId; // append connection id
+     closeCommand+="\r\n";
+     
+     sendData(closeCommand,3000,DEBUG);
+    }
+  }
+}
+String sendData(String command, const int timeout, boolean debug)
+{
+    String response = "";
+    
+    esp8266.print(command); // send the read character to the esp8266
+    
+    long int time = millis();
+    
+    while( (time+timeout) > millis())
+    {
+      while(esp8266.available())
+      {
+        
+        // The esp has data so display its output to the serial window 
+        char c = esp8266.read(); // read the next character.
+        response+=c;
+      }  
+    }
+    
+    if(debug)
+    {
+      Serial.print(response);
+    }
+    
+    return response;
+}
